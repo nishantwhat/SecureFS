@@ -18,7 +18,7 @@ public class DeleteCommand {
             mode = SecureDeletionService.DeletionMode.valueOf(modeName.toUpperCase());
         } catch (IllegalArgumentException e) {
             System.err.println("Error: Unknown mode '" + modeName + "'. " +
-                               "Valid options: SECURE, NORMAL");
+                               "Valid options: SECURE, NORMAL, SMART");
             System.exit(1);
             return;
         }
@@ -26,6 +26,12 @@ public class DeleteCommand {
         if (mode == SecureDeletionService.DeletionMode.NORMAL) {
             System.err.println("Warning: NORMAL mode does not overwrite file contents. " +
                                "Data may be recoverable with forensic tools.");
+        }
+        if (mode == SecureDeletionService.DeletionMode.SMART) {
+            System.err.println(
+                "Info: SMART mode applies metadata obfuscation + overwrite. " +
+                "Not guaranteed on SSD due to wear leveling."
+            );
         }
 
         SecureDeletionService service = SecureFileSystemFactory.createDeletionService();

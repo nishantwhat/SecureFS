@@ -49,10 +49,12 @@ public class CommandRouter {
 
     private void handleEncrypt(String[] args) {
         String input   = getArg(args, "--input");
-        String output  = getArg(args, "--output");
+        // String output  = getArg(args, "--output");
+        String output  = input;
         String profile = getArgOrDefault(args, "--profile", "STANDARD");
         requireArgs(input, "--input");
-        requireArgs(output, "--output");
+        // requireArgs(output, "--output");
+        requireArgs(input, "--output");
         new EncryptCommand().execute(input, output, profile);
     }
 
@@ -122,11 +124,11 @@ public class CommandRouter {
             Usage: securefs <command> [options]
             
             Commands:
-              encrypt  --input <file> --output <file> [--profile STANDARD|HIGH|PARANOID]
+              encrypt  --input <file> [--profile STANDARD|HIGH|PARANOID]
               decrypt  --input <file> --output <file>
               hash     --input <file> [--algorithm SHA256|SHA3_256]
               verify   --input <file> --expected <hex> [--algorithm SHA256|SHA3_256]
-              delete   --input <file> [--mode SECURE|NORMAL]
+              delete   --input <file> [--mode SECURE|NORMAL|SMART]
             
             Profiles:
               STANDARD  SHA-256,   310,000 PBKDF2 iterations (default)

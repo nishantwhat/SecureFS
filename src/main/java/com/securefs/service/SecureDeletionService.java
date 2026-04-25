@@ -22,14 +22,28 @@ public class SecureDeletionService {
         /** Overwrites file contents before deletion. Effective on HDD. */
         SECURE,
         /** Issues a plain OS delete call with no overwriting. Fast but recoverable. */
-        NORMAL
+        NORMAL,
+        /** Change the file name to something random*/
+        /** Empty the file instantly*/
+        /**  Fill it with random junk*/
+        /** Delete it*/
+        SMART
     }
+    private final SecureDeletionStrategy secureStrategy;
+    private final SecureDeletionStrategy smartStrategy;
 
-    private final SecureDeletionStrategy secureDeletionStrategy;
-
-    public SecureDeletionService(SecureDeletionStrategy secureDeletionStrategy) {
-        this.secureDeletionStrategy = secureDeletionStrategy;
+    public SecureDeletionService(
+            SecureDeletionStrategy secureStrategy,
+            SecureDeletionStrategy smartStrategy
+    ) {
+        this.secureStrategy = secureStrategy;
+        this.smartStrategy = smartStrategy;
     }
+    // private final SecureDeletionStrategy secureDeletionStrategy;
+
+    // public SecureDeletionService(SecureDeletionStrategy secureDeletionStrategy) {
+    //     this.secureDeletionStrategy = secureDeletionStrategy;
+    // }
 
     /**
      * Deletes a file using the specified mode.
@@ -43,11 +57,11 @@ public class SecureDeletionService {
      * @throws DeletionException if deletion fails
      */
     public DeletionResult deleteFile(Path target, DeletionMode mode) throws DeletionException {
-        if (mode == DeletionMode.SECURE) {
-            return secureDeletionStrategy.delete(target);
-        } else {
-            return normalDelete(target);
-        }
+        return switch (mode) {
+            case SECURE -> secureStrategy.delete(target);
+            case SMART -> smartStrategy.delete(target);
+            case NORMAL -> normalDelete(target);
+        };
     }
 
     private DeletionResult normalDelete(Path target) throws DeletionException {
