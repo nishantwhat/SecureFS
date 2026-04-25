@@ -132,3 +132,30 @@ securefs delete --input secret.txt --mode SECURE
              is likely unrecoverable. On SSD: wear leveling may preserve
              original data in unreachable sectors.
 
+securefs delete --input secret.txt --mode SECURE   # overwrite + delete
+securefs delete --input secret.txt --mode SMART    # rename + truncate + overwrite + delete
+securefs delete --input secret.txt --mode NORMAL   # OS delete only
+
+## Deletion Modes Explained
+## NORMAL
+Fast OS-level delete. File contents are not overwritten. Data is recoverable.
+## SECURE
+Overwrites file contents with random bytes before deletion. Effective on HDD.
+## SMART
+Performs:
+-filename randomization
+-truncation (removes structure immediately)
+-overwrite with random data
+-deletion
+
+This reduces both data recovery and metadata leakage.
+
+## Important Note on SSDs
+
+Secure deletion is not fully reliable on SSDs due to wear leveling.
+Overwrites may not affect the original physical location of data.
+
+For stronger guarantees:
+
+use full-disk encryption and destroy keys
+or use hardware secure erase

@@ -66,6 +66,9 @@ public class SecureFileSystemFactory {
      * @return a ready-to-use SecureDeletionService
      */
     public static SecureDeletionService createDeletionService() {
-        return new SecureDeletionService(new OverwriteDeletionStrategy());
+        return new SecureDeletionService(
+            new OverwriteDeletionStrategy(),
+            new com.securefs.deletion.SmartDeletionStrategy()
+        );
     }
 }
