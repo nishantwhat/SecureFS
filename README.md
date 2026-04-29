@@ -1,161 +1,166 @@
-# SecureFS
-java based file security application 
+<div align="center">
 
-## How the System Works — Plain Explanation
-When you encrypt a file, three things happen in sequence. 
-First, a random 16-byte salt is generated. Your password and that salt are fed into PBKDF2, which runs 310,000 (or more, depending on profile) rounds of a mathematical function to produce a 256-bit key. This is slow by design — it makes brute-forcing your password expensive. 
+![Java](https://img.shields.io/badge/Java-17%2B-000000?style=for-the-badge&logo=openjdk&logoColor=4FFF4F)
+![Security](https://img.shields.io/badge/Crypto-AES--256--GCM-000000?style=for-the-badge&logo=asciinema&logoColor=4FFF4F)
+![KDF](https://img.shields.io/badge/KDF-PBKDF2-000000?style=for-the-badge&logo=key&logoColor=4FFF4F)
+![Build](https://img.shields.io/badge/Build-Passing-000000?style=for-the-badge&logo=checkmarx&logoColor=4FFF4F)
 
-Second, a random 12-byte nonce is generated. The AES-256-GCM cipher uses the key and nonce to encrypt your file and produces a 16-byte authentication tag alongside the ciphertext. 
+# SECURE.FS
+**Advanced Cryptographic Orchestration & Anti-Forensic Deletion Engine**
 
-Third, the output file is written as: version byte, profile byte, salt, nonce, ciphertext, and tag — all in sequence.
+> "Security is not a feature. It is a strictly enforced architectural boundary."
 
-When you decrypt, the process reverses. The version and profile bytes are read first to know which parameters were used. The salt is read and combined with your password to re-derive the exact same key. The nonce is read and given to AES-GCM along with the ciphertext. If your password is correct and the file is unmodified, the authentication tag verifies and plaintext is produced. If anything is wrong — wrong password, flipped bit, truncated file — the tag fails to verify and decryption stops with an error and no output.
+</div>
 
-Every layer in the system is independent. The CLI does not know that AES-GCM exists. The encryption engine does not know that security profiles exist. The factory connects them once. Everything else communicates through interfaces.
+---
 
-# PROJECT STRUCTURE
+## SYSTEM OVERVIEW
 
+In an era of rampant data compromise, standard OS-level permissions are fundamentally broken. SecureFS is a terminal-native, high-performance file security engine engineered in Java. It operates on the principle of absolute cryptographic isolation and zero-trust data handling.
+
+Rather than relying on closed-box third-party GUI tools, SecureFS provides an auditable, extensible, and mathematically rigorous pipeline for file encryption, integrity verification, and anti-forensic data destruction. Every component—from the command-line interface to the AES-GCM engine—is entirely decoupled, communicating only via strict interfaces wired together at runtime.
+
+---
+
+## CYBERSECURITY ARCHITECTURE
+
+SecureFS does not just hide data; it actively defends against specific, modern cryptographic attack vectors.
+
+* **Brute-Force Mitigation:** User passwords are fed into a **PBKDF2** engine alongside a 16-byte random salt. By forcing 310,000+ mathematical rounds, the system introduces artificial latency that makes automated offline password-cracking computationally unviable.
+* **Authenticated Encryption:** Data is encrypted using **AES-256-GCM**. Unlike standard CBC mode, GCM provides both absolute confidentiality and tamper-proof integrity.
+* **Tamper-Evident Architecture:** The AES-GCM process appends a 16-byte Authentication Tag. During decryption, if a single bit has been altered or maliciously flipped, validation fails instantly, yielding zero output.
+* **Memory Isolation:** Passwords are read directly into `char[]` arrays, which are manually overwritten in memory with null characters the millisecond cryptographic derivation is complete.
+
+---
+
+## CRYPTOGRAPHIC DATA FLOW
+
+When a file is encrypted, the system processes it through a strict, deterministic sequence to ensure maximum entropy and integrity validation upon decryption.
+
+```mermaid
+sequenceDiagram
+    participant User as CLI Input
+    participant KDF as PBKDF2 Engine
+    participant AES as AES-256-GCM
+    participant File as Encrypted Output
+    
+    User->>KDF: Password + Random 16-byte Salt
+    Note over KDF: 310,000+ mathematical rounds<br/>(Brute-force mitigation)
+    KDF->>AES: 256-bit Derived Key
+    User->>AES: Random 12-byte Nonce + Plaintext
+    AES->>File: Ciphertext
+    AES->>File: 16-byte Auth Tag (Integrity)
+    Note over File: Output Structure:<br/>[Version] [Profile] [Salt] [Nonce] [Ciphertext] [Tag]
+```
+
+*During decryption, the system reverse-engineers this exact flow. The pre-pended Version and Profile bytes dynamically determine the parameters needed to reverse the algorithm.*
+
+---
+
+## DEVELOPER API & EXTENSIBILITY
+
+SecureFS is designed for seamless extensibility. The core logic relies on heavily abstracted interfaces, meaning you can swap out algorithms without touching the orchestration layer.
+
+### The Core Interfaces
+```java
+public interface EncryptionStrategy {
+    EncryptionResult encrypt(byte[] plaintext, char[] password);
+    byte[] decrypt(byte[] ciphertext, char[] password);
+}
+```
+
+### Repository Structure
+```text
 securefs/
 ├── build.gradle
-├── README.md
-└── src/
-    └── main/
-        └── java/
-            └── com/
-                └── securefs/
-                    │
-                    ├── core/                          # Interfaces, models, exceptions
-                    │   ├── exception/
-                    │   │   ├── SecureFileException.java
-                    │   │   ├── CryptoException.java
-                    │   │   ├── DeletionException.java
-                    │   │   └── HashException.java
-                    │   ├── model/
-                    │   │   ├── DeletionResult.java
-                    │   │   ├── HashResult.java
-                    │   │   └── EncryptionResult.java
-                    │   └── interfaces/
-                    │       ├── EncryptionStrategy.java
-                    │       ├── HashingStrategy.java
-                    │       └── SecureDeletionStrategy.java
-                    │
-                    ├── profile/                       # Security profiles
-                    │   ├── SecurityProfile.java
-                    │   ├── HashAlgorithm.java
-                    │   └── KdfStrength.java
-                    │
-                    ├── crypto/                        # Encryption + key derivation
-                    │   ├── AesGcmEncryptionStrategy.java
-                    │   └── Pbkdf2KeyDerivationService.java
-                    │
-                    ├── hash/                          # Hashing implementations
-                    │   ├── Sha256HashingStrategy.java
-                    │   └── Sha3256HashingStrategy.java
-                    │
-                    ├── deletion/                      # Secure deletion
-                    │   └── OverwriteDeletionStrategy.java
-                    │
-                    ├── service/                       # Orchestration layer
-                    │   ├── FileEncryptionService.java
-                    │   ├── FileHashService.java
-                    │   └── SecureDeletionService.java
-                    │
-                    ├── factory/                       # Wiring
-                    │   └── SecureFileSystemFactory.java
-                    │
-                    └── cli/                           # Command-line interface
-                        ├── Main.java
-                        ├── CommandRouter.java
-                        └── commands/
-                            ├── EncryptCommand.java
-                            ├── DecryptCommand.java
-                            ├── HashCommand.java
-                            ├── VerifyCommand.java
-                            └── DeleteCommand.java
+└── src/main/java/com/securefs/
+    ├── core/                          # Base interfaces, domain models, exceptions
+    ├── profile/                       # Dynamic security profiles & KDF strengths
+    ├── crypto/                        # AesGcmEncryptionStrategy, Pbkdf2KeyDerivation
+    ├── hash/                          # Sha256 / Sha3-256 Hashing Strategies
+    ├── deletion/                      # Multi-pass Secure Deletion implementations
+    ├── service/                       # The Orchestration Layer
+    ├── factory/                       # Dependency Injection & Wiring
+    └── cli/                           # Command Router & Terminal Interface
+```
 
-# Step-by-Step Run Guide
+---
 
-## Step 1: Clone and build
-bash
+## ANTI-FORENSIC DELETION MODES
 
-git clone https://github.com/yourname/securefs.git
+Standard OS deletion only removes the file pointer. SecureFS implements distinct deletion strategies to handle data permanence at the sector level.
+
+| Mode | Operation | Use Case |
+| :--- | :--- | :--- |
+| `NORMAL` | Standard OS-level deletion. Fast, but data remains in memory sectors until overwritten. | Quick cleanup, non-sensitive data. |
+| `SECURE` | Overwrites file contents with random byte streams prior to OS deletion. | Standard hard disk drives (HDDs). |
+| `SMART` | Randomizes filename -> Truncates structure -> Overwrites with random data -> Deletes. | Maximum security against metadata and header leakage. |
+
+> **IMPORTANT SSD WARNING:** Due to wear-leveling algorithms on modern Solid State Drives, software secure deletion cannot guarantee the exact physical NAND gate is overwritten. For absolute physical destruction, hardware-level secure erase or full-disk encryption is required.
+
+---
+
+## DEPLOYMENT & EXECUTION GUIDE
+
+### 1. Build the Engine
+Clone the repository and compile the JAR using Gradle.
+```bash
+git clone [https://github.com/your-username/securefs.git](https://github.com/your-username/securefs.git)
 cd securefs
 ./gradlew jar
+```
 
-This produces build/libs/securefs.jar.
-
-## Step 2: Create an alias (optional but convenient)
-bash
-
+### 2. Configure Alias (Optional)
+For a terminal-native workflow, map the JAR to a global command:
+```bash
 alias securefs='java -jar /path/to/securefs/build/libs/securefs.jar'
+```
 
-## Step 3: Encrypt a file
-bash
+### 3. Encrypt Payload
+```bash
+securefs encrypt --input payload.txt --output payload.enc --profile STANDARD
+# Enter password: (typed, not echoed)
+# [SUCCESS] Output: payload.enc | Profile: STANDARD | Algo: AES-256-GCM
+```
 
-securefs encrypt --input secret.txt --output secret.txt.enc --profile STANDARD
- Enter password: (typed, not echoed)
- Encryption successful.
- Output:    secret.txt.enc
- Profile:   STANDARD
- Algorithm: AES-256-GCM
+### 4. Decrypt Payload
+```bash
+securefs decrypt --input payload.enc --output payload_decrypted.txt
+# Enter password: (typed, not echoed)
+# [SUCCESS] Output: payload_decrypted.txt
+```
 
-## Step 4: Decrypt the file
-bash
+### 5. Generate Cryptographic Hash
+```bash
+securefs hash --input payload.txt
+# file:      payload.txt
+# algorithm: SHA-256
+# digest:    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+```
 
-securefs decrypt --input secret.txt.enc --output secret_decrypted.txt
- Enter password: (typed, not echoed)
- Decryption successful.
- Output: secret_decrypted.txt
- 
-## Step 5: Hash a file
-bash
+### 6. Verify Integrity
+```bash
+securefs verify --input payload.txt --expected e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+# [VERIFIED] Digest matches perfectly.
+```
 
-securefs hash --input secret.txt
- file:      secret.txt
- algorithm: SHA-256
- digest:    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
- bytes:     0
+### 7. Execute Anti-Forensic Wipe
+```bash
+securefs delete --input target_file.txt --mode SMART
+# Deleted:    target_file.txt
+# Mode:       SMART (Rename -> Truncate -> Overwrite -> Delete)
+# Confidence: High (Subject to SSD wear-leveling caveats)
+```
 
-## Step 6: Verify integrity
-bash
+---
 
-securefs verify --input secret.txt --expected e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
- VERIFIED: Digest matches.
+<div align="center">
 
-## Step 7: Securely delete a file
-bash
+### DEVELOPED BY
+**Nishant | Nirvan | Tanvi | Kavya**
 
-securefs delete --input secret.txt --mode SECURE
- Deleted:    secret.txt
- Confidence: UNKNOWN
- Note:       File overwritten with random bytes and deleted. On HDD: data
-             is likely unrecoverable. On SSD: wear leveling may preserve
-             original data in unreachable sectors.
+*Engineered with precision for absolute data security.*
 
-securefs delete --input secret.txt --mode SECURE   # overwrite + delete
-securefs delete --input secret.txt --mode SMART    # rename + truncate + overwrite + delete
-securefs delete --input secret.txt --mode NORMAL   # OS delete only
+[GitHub](https://github.com/your-username) | [Report a Vulnerability](mailto:your-email@example.com)
 
-## Deletion Modes Explained
-## NORMAL
-Fast OS-level delete. File contents are not overwritten. Data is recoverable.
-## SECURE
-Overwrites file contents with random bytes before deletion. Effective on HDD.
-## SMART
-Performs:
--filename randomization
--truncation (removes structure immediately)
--overwrite with random data
--deletion
-
-This reduces both data recovery and metadata leakage.
-
-## Important Note on SSDs
-
-Secure deletion is not fully reliable on SSDs due to wear leveling.
-Overwrites may not affect the original physical location of data.
-
-For stronger guarantees:
-
-use full-disk encryption and destroy keys
-or use hardware secure erase
+</div>
